@@ -9,6 +9,8 @@ Two macOS apps share one local SQLite catalog:
 | **Photo Signal** | Browse indexed months, inspect previews and metadata, search, ask AI to curate highlights, and create reviewed Photos albums. |
 | **Photo Signal Indexer** | Menu-bar agent for recent-photo watching, explicit history backfills, checkpoints, budget tracking, and graceful pause/quit. |
 
+Hover the menu-bar **Index** icon for live phase, saved/waiting/review counts, and estimated spending plus reserved costs. Click it for controls.
+
 The viewer can be closed while the indexer works. A new indexer installation starts **paused**. Watching scans recent months every 15 minutes while the Mac is awake; backfill runs newest first from a year you choose. Unchanged successful analysis is reused. Failed or ambiguous requests are not automatically charged again.
 
 ## Build and install locally

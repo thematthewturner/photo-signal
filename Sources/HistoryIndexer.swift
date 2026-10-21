@@ -145,6 +145,10 @@ final class HistoryIndexer: NSObject {
         usage.title=String(format:"Total estimated $%.4f + $%.4f reserved / $35 · ",spent,reserved)+"Batch: \(progress["batch_new_requests"] ?? 0)/100 new · month $\(progress["calculated_usd"] ?? 0) · total cap $35"
         message.title=String((state["message"] as? String ?? "").prefix(100))
         item.button?.title = busy ? "\(c["success"] ?? 0)" : "Index"
+        let needsReview = ["unknown", "failed", "unavailable"].reduce(0) { $0 + ((c[$1] as? NSNumber)?.intValue ?? 0) }
+        let tooltip = "Photo Signal Indexer · \(phase.capitalized)\n\(month): \(c["success"] ?? 0)/\(progress["total"] ?? 0) saved · \(c["waiting"] ?? 0) waiting · \(needsReview) need review\n" + String(format: "Estimated $%.4f + $%.4f reserved / $35", spent, reserved) + "\nClick for status and controls."
+        item.button?.toolTip = tooltip
+        item.button?.setAccessibilityHelp(tooltip)
         statusLine.stringValue = "\(title.title)\n\(counts.title)\n\(message.title)"
         let total = (progress["total"] as? NSNumber)?.doubleValue ?? 0
         progressBar.doubleValue = total > 0 ? ((c["success"] as? NSNumber)?.doubleValue ?? 0) / total : 0
