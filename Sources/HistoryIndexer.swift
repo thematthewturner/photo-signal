@@ -129,7 +129,7 @@ final class HistoryIndexer: NSObject {
             statusLine.frame = NSRect(x: 24, y: 496, width: 792, height: 64); statusLine.font = .systemFont(ofSize: 14); statusLine.autoresizingMask = [.width, .minYMargin]; w.contentView?.addSubview(statusLine)
             progressBar.frame = NSRect(x: 24, y: 474, width: 792, height: 10); progressBar.isIndeterminate = false; progressBar.maxValue = 1; progressBar.autoresizingMask = [.width, .minYMargin]; w.contentView?.addSubview(progressBar)
             let scroll=NSScrollView(frame:NSRect(x:16,y:48,width:808,height:408));scroll.autoresizingMask=[.width,.height];scroll.hasVerticalScroller=true;text.isEditable=false;text.isSelectable=true;text.font = .monospacedSystemFont(ofSize:11,weight:.regular);scroll.documentView=text;w.contentView?.addSubview(scroll)
-            for (i,control) in [("Watch latest",#selector(watchLatest)),("Pause",#selector(pause))].enumerated(){let button=NSButton(title:control.0,target:self,action:control.1);button.frame=NSRect(x:16+i*180,y:8,width:165,height:32);w.contentView?.addSubview(button)}
+            for (i,control) in [("Watch latest",#selector(watchLatest)),("Backfill history…",#selector(backfillHistory)),("Pause",#selector(pause))].enumerated(){let button=NSButton(title:control.0,target:self,action:control.1);button.frame=NSRect(x:16+i*180,y:8,width:165,height:32);w.contentView?.addSubview(button)}
             w.center();detailWindow=w}
         refresh();detailWindow?.makeKeyAndOrderFront(nil);NSApp.activate(ignoringOtherApps:true)
     }
