@@ -9,8 +9,9 @@ final class IndexerDelegate: NSObject, NSApplicationDelegate {
             NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration(), completionHandler: nil)
         }
         coordinator.install()
-        if CommandLine.arguments.contains("--status") { coordinator.showStatus() }
+        if !CommandLine.arguments.contains("--background") { coordinator.showStatus() }
     }
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool { coordinator.showStatus(); return true }
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         if !coordinator.hasActiveWork { return .terminateNow }
         coordinator.prepareToQuit { NSApp.reply(toApplicationShouldTerminate: true) }

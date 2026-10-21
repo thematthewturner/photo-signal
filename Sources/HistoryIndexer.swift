@@ -218,7 +218,8 @@ final class HistoryIndexer: NSObject {
             try checkSpace()
             try autoreleasepool {
                 var row=Benchmark.metadata(asset);let aid=asset.localIdentifier
-                if let old=existing[aid],(old["modified_at"] as? String)==(row["modified_at"] as? String),let files=old["files"] as? [String:String],let rel=files["768"],fm.fileExists(atPath:source.appendingPathComponent(rel).path){rows.append(old);return}
+                if let old=existing[aid],(old["modified_at"] as? String)==(row["modified_at"] as? String),let files=old["files"] as? [String:String],let rel=files["768"],fm.fileExists(atPath:source.appendingPathComponent(rel).path){row["files"] = files; row["sample_id"] = old["sample_id"]; row["status"] = old["status"]
+                    rows.append(row); existing[aid] = row; return}
                 let sid=(existing[aid]?["sample_id"] as? String) ?? aid.components(separatedBy:"/")[0]
                 row["sample_id"]=sid
                 let request=PHImageRequestOptions();request.isNetworkAccessAllowed=false;request.deliveryMode = .highQualityFormat;request.resizeMode = .fast;request.version = .current

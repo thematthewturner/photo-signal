@@ -6,7 +6,7 @@ ROOT=Path(__file__).resolve().parents[1]
 LABEL='local.photosignal.indexer'
 def launch_plist(app):
     base=Path.home()/'Library/Application Support/PhotoSignal'
-    return dict(Label=LABEL,ProgramArguments=[str(app/'Contents/MacOS/PhotoSignal')],RunAtLoad=True,
+    return dict(Label=LABEL,ProgramArguments=[str(app/'Contents/MacOS/PhotoSignal'),'--background'],RunAtLoad=True,
                 KeepAlive={'SuccessfulExit':False},ThrottleInterval=60,ProcessType='Background',
                 LimitLoadToSessionType='Aqua',StandardOutPath=str(base/'history/agent.log'),StandardErrorPath=str(base/'history/agent-error.log'))
 def main():

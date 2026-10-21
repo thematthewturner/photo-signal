@@ -289,8 +289,10 @@ def run(month, budget, concurrency, retry_failed=False, max_new=None, global_bud
             db.execute('UPDATE jobs SET active=0')
             for row in rows:
                 aid = row['asset_id']; rel = row.get('files', {}).get('768'); path = source / rel if rel else None
-                if not cat.execute('SELECT 1 FROM assets WHERE asset_id=?',(aid,)).fetchone(): catalog.upsert_asset(cat, row)
-                else: cat.execute('UPDATE assets SET modified_at=?,created_at=?,width=?,height=? WHERE asset_id=?', (row.get('modified_at'),row.get('created_at'),row.get('width'),row.get('height'),aid))
+                existing = cat.execute('SELECT raw_json FROM assets WHERE asset_id=?',(aid,)).fetchone()
+                merged = json.loads(existing[0] or '{}') if existing else {}
+                merged.update(row)
+                catalog.upsert_asset(cat, merged)
                 catalog.refresh_search_asset(cat, aid)
                 ih = digest(path.read_bytes()) if path and path.exists() else ''
                 jid = digest((aid+str(row.get('modified_at'))+ih+pipeline).encode())

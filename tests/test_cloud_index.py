@@ -23,6 +23,11 @@ class CloudTests(unittest.TestCase):
             with mock.patch.object(cloud,'BASE',base), mock.patch.object(cloud,'STOP',False), mock.patch.object(cloud.catalog,'connect',side_effect=lambda:original_connect(base/'catalog')), mock.patch.object(cloud,'refresh_people',return_value={'status':'complete'}), mock.patch.object(cloud.subprocess,'run',return_value=SimpleNamespace(stdout='test credential')), mock.patch.object(cloud,'request_image',return_value=response) as request:
                 cloud.run('2026-10',2,2)
                 self.assertEqual(request.call_count,1)
+                rows[0]['favorite']=True;manifest()
+                cloud.run('2026-10',2,2)
+                self.assertEqual(request.call_count,1)
+                check=original_connect(base/'catalog')
+                self.assertEqual(check.execute("SELECT favorite FROM assets WHERE asset_id='a'").fetchone()[0],1);check.close()
                 (source/'b.jpg').write_bytes(b'preview b');rows[1]['files']={'768':'b.jpg'};manifest()
                 cloud.run('2026-10',2,2)
                 self.assertEqual(request.call_count,2)

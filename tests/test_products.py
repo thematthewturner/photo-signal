@@ -8,7 +8,7 @@ class ProductLifecycle(unittest.TestCase):
         p=installer.launch_plist(Path('/Users/example/Applications/Photo Signal Indexer.app'))
         self.assertEqual(p['KeepAlive'],{'SuccessfulExit':False})
         self.assertGreaterEqual(p['ThrottleInterval'],60)
-        self.assertEqual(len(p['ProgramArguments']),1)
+        self.assertEqual(p['ProgramArguments'][1:],['--background'])
         self.assertEqual(p['LimitLoadToSessionType'],'Aqua')
         self.assertNotIn('--history',p['ProgramArguments'])
         self.assertNotIn('--resume',p['ProgramArguments'])
