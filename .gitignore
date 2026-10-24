@@ -1,0 +1,19 @@
+build/
+.DS_Store
+*.jsonl
+*.sqlite*
+.cache/
+
+__pycache__/
+
+# Local state and credentials
+.env
+.env.*
+*.key
+*.pem
+.venv/
+*.app/
+*.log
+*.installing/
+scripts/curate_top25.py
+scripts/build_top25_gallery.py

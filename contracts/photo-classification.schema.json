@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "photosignal-classification-1.0",
+  "title": "PhotoSignal per-photo classification",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "caption", "search_phrases", "scene", "activities", "objects",
+    "people", "animals", "relationships", "visible_text", "image_type", "quality",
+    "uncertainties", "needs_higher_resolution", "higher_resolution_reason"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "caption": {"type": "string", "maxLength": 600, "description": "Factual description, max 60 words"},
+    "search_phrases": {"type": "array", "maxItems": 5, "items": {"type": "string", "minLength": 1}},
+    "scene": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["indoor_outdoor", "settings", "background_elements", "lighting", "weather_visible"],
+      "properties": {
+        "indoor_outdoor": {"enum": ["indoor", "outdoor", "mixed", "unclear"]},
+        "settings": {"type": "array", "items": {"type": "string"}},
+        "background_elements": {"type": "array", "items": {"type": "string"}},
+        "lighting": {"type": "array", "items": {"type": "string"}},
+        "weather_visible": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "activities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["label", "subject", "certainty"],
+        "properties": {
+          "label": {"type": "string", "minLength": 1},
+          "subject": {"type": "string", "minLength": 1},
+          "certainty": {"enum": ["clear", "uncertain"]}
+        }
+      }
+    },
+    "objects": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["label", "count", "certainty"],
+        "properties": {
+          "label": {"type": "string", "minLength": 1},
+          "count": {"type": ["integer", "null"], "minimum": 0},
+          "certainty": {"enum": ["clear", "uncertain"]}
+        }
+      }
+    },
+    "people": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["visible_count", "count_uncertain", "composition", "clothing_and_carried_items"],
+      "properties": {
+        "visible_count": {"type": ["integer", "null"], "minimum": 0},
+        "count_uncertain": {"type": "boolean"},
+        "composition": {"type": "array", "items": {"type": "string"}},
+        "clothing_and_carried_items": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "animals": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["label", "count", "certainty"],
+        "properties": {
+          "label": {"type": "string", "minLength": 1},
+          "count": {"type": ["integer", "null"], "minimum": 0},
+          "certainty": {"enum": ["clear", "uncertain"]}
+        }
+      }
+    },
+    "relationships": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["subject", "relation", "object", "certainty"],
+        "properties": {
+          "subject": {"type": "string", "minLength": 1},
+          "relation": {"type": "string", "minLength": 1},
+          "object": {"type": "string", "minLength": 1},
+          "certainty": {"enum": ["clear", "uncertain"]}
+        }
+      }
+    },
+    "visible_text": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["text", "context", "legibility"],
+        "properties": {
+          "text": {"type": "string", "minLength": 1},
+          "context": {"type": "string"},
+          "legibility": {"enum": ["clear", "partial"]}
+        }
+      }
+    },
+    "image_type": {"enum": ["photo", "screenshot", "document", "illustration", "other", "unclear"]},
+    "quality": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["blur", "exposure_issue", "obstruction"],
+      "properties": {
+        "blur": {"enum": ["none", "mild", "strong", "unclear"]},
+        "exposure_issue": {"enum": ["none", "dark", "bright", "mixed", "unclear"]},
+        "obstruction": {"enum": ["none", "partial", "strong", "unclear"]}
+      }
+    },
+    "uncertainties": {"type": "array", "items": {"type": "string"}},
+    "needs_higher_resolution": {"type": "boolean"},
+    "higher_resolution_reason": {"type": ["string", "null"]}
+  }
+}
