@@ -40,6 +40,31 @@ class CloudTests(unittest.TestCase):
             self.assertEqual(db.execute('SELECT count(*) FROM jobs WHERE active=1').fetchone()[0],2)
             db.close()
 
+    def test_uncertain_request_is_skipped_and_queue_continues(self):
+        for failures, expected_calls, expected_phase in [(1, 7, 'complete_with_gaps'), (5, 5, 'attention_required')]:
+            with self.subTest(failures=failures), tempfile.TemporaryDirectory() as tmp:
+                base=pathlib.Path(tmp); source=base/'sandbox-cache/2024-08'; source.mkdir(parents=True)
+                rows=[]
+                for i in range(7):
+                    name=str(i); (source/(name+'.jpg')).write_bytes(name.encode())
+                    rows.append(dict(asset_id=name,sample_id=name,modified_at='v1',files={'768':name+'.jpg'}))
+                (source/'manifest.jsonl').write_text(''.join(json.dumps(r)+'\n' for r in rows))
+                (source/'summary.json').write_text('{}')
+                c=dict(caption='Dog',search_phrases=[],scene=dict(settings=[],background_elements=[],lighting=[],weather_visible=[]),image_type='photo',activities=[],objects=[],animals=[],visible_text=[])
+                good=dict(response={},classification=c,error=None,ambiguous=False,input=100,output=100,cache=0,reasoning=0,cost=.0001,seconds=.01)
+                bad=dict(good,classification=None,error='ConnectionResetError',ambiguous=True,input=None,output=None,cost=None)
+                connect=catalog.connect
+                with mock.patch.object(cloud,'BASE',base), mock.patch.object(cloud,'STOP',False), mock.patch.object(cloud.catalog,'connect',side_effect=lambda:connect(base/'catalog')), mock.patch.object(cloud,'refresh_people',return_value={'status':'complete'}), mock.patch.object(cloud.subprocess,'run',return_value=SimpleNamespace(stdout='test')), mock.patch.object(cloud,'request_image',side_effect=[bad]*failures+[good]*7) as request:
+                    cloud.run('2024-08',2,1)
+                    self.assertEqual(request.call_count,expected_calls)
+                    result=json.loads((base/'cloud-index/2024-08/progress.json').read_text())
+                    self.assertEqual(result['phase'],expected_phase)
+                    self.assertEqual(result['counts']['unknown'],failures)
+                    self.assertGreaterEqual(result['reserved_usd'],failures*cloud.RESERVE)
+                    if failures==1:
+                        cloud.run('2024-08',2,1)
+                        self.assertEqual(request.call_count,7, 'Resume must not repeat uncertain or successful requests')
+
     def test_queue_upgrade_preserves_completed_checkpoint(self):
         with tempfile.TemporaryDirectory() as tmp:
             folder=pathlib.Path(tmp)

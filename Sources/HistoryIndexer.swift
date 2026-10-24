@@ -53,7 +53,7 @@ final class HistoryIndexer: NSObject {
         let menu = NSMenu()
         for entry in [title,counts,usage,message] { menu.addItem(entry) }
         menu.addItem(.separator())
-        for (label, action) in [("Watch latest photos",#selector(watchLatest)),("Backfill history…",#selector(backfillHistory)),("Pause after current work",#selector(pause)),("Show indexing status",#selector(showStatus)),("Open Photo Signal",#selector(showViewer)),("Open checkpoint files",#selector(openFiles)),("Quit Indexer",#selector(quit))] {
+        for (label, action) in [("Resume history",#selector(resumeHistory)),("Watch latest photos",#selector(watchLatest)),("Backfill history…",#selector(backfillHistory)),("Pause after current work",#selector(pause)),("Show indexing status",#selector(showStatus)),("Open Photo Signal",#selector(showViewer)),("Open checkpoint files",#selector(openFiles)),("Quit Indexer",#selector(quit))] {
             let entry=NSMenuItem(title:label,action:action,keyEquivalent:"");entry.target=self;menu.addItem(entry)
         }
         item.menu = menu
@@ -64,6 +64,7 @@ final class HistoryIndexer: NSObject {
     private func persistSettings() {
         if let data = try? JSONSerialization.data(withJSONObject: ["mode": mode, "backfill": backfill]) { try? data.write(to: settingsURL, options: .atomic) }
     }
+    @objc private func resumeHistory() { mode = "watching"; backfill = true; persistSettings(); resume() }
     @objc private func watchLatest() { mode = "watching"; backfill = false; persistSettings(); resume() }
     @objc private func backfillHistory() {
         let alert = NSAlert(); alert.messageText = "Backfill older photos"
@@ -129,7 +130,7 @@ final class HistoryIndexer: NSObject {
             statusLine.frame = NSRect(x: 24, y: 496, width: 792, height: 64); statusLine.font = .systemFont(ofSize: 14); statusLine.autoresizingMask = [.width, .minYMargin]; w.contentView?.addSubview(statusLine)
             progressBar.frame = NSRect(x: 24, y: 474, width: 792, height: 10); progressBar.isIndeterminate = false; progressBar.maxValue = 1; progressBar.autoresizingMask = [.width, .minYMargin]; w.contentView?.addSubview(progressBar)
             let scroll=NSScrollView(frame:NSRect(x:16,y:48,width:808,height:408));scroll.autoresizingMask=[.width,.height];scroll.hasVerticalScroller=true;text.isEditable=false;text.isSelectable=true;text.font = .monospacedSystemFont(ofSize:11,weight:.regular);scroll.documentView=text;w.contentView?.addSubview(scroll)
-            for (i,control) in [("Watch latest",#selector(watchLatest)),("Backfill history…",#selector(backfillHistory)),("Pause",#selector(pause))].enumerated(){let button=NSButton(title:control.0,target:self,action:control.1);button.frame=NSRect(x:16+i*180,y:8,width:165,height:32);w.contentView?.addSubview(button)}
+            for (i,control) in [("Resume history",#selector(resumeHistory)),("Watch latest",#selector(watchLatest)),("Backfill history…",#selector(backfillHistory)),("Pause",#selector(pause))].enumerated(){let button=NSButton(title:control.0,target:self,action:control.1);button.frame=NSRect(x:16+i*180,y:8,width:165,height:32);w.contentView?.addSubview(button)}
             w.center();detailWindow=w}
         refresh();detailWindow?.makeKeyAndOrderFront(nil);NSApp.activate(ignoringOtherApps:true)
     }
@@ -140,17 +141,22 @@ final class HistoryIndexer: NSObject {
         let spent=totals.reduce(0.0){$0+(($1["calculated_usd"] as? NSNumber)?.doubleValue ?? 0)},reserved=totals.reduce(0.0){$0+(($1["reserved_usd"] as? NSNumber)?.doubleValue ?? 0)}
         let input=totals.reduce(0){$0+(($1["input_tokens"] as? NSNumber)?.intValue ?? 0)},output=totals.reduce(0){$0+(($1["output_tokens"] as? NSNumber)?.intValue ?? 0)}
         let progress=object(base.appendingPathComponent("cloud-index/\(month)/progress.json")),c=progress["counts"] as? [String:Any] ?? [:]
-        title.title="Indexer · \(phase) · \(month)"
-        counts.title="Month: \(c["success"] ?? 0)/\(progress["total"] ?? 0) saved · waiting \(c["waiting"] ?? 0) · gaps \(c["unavailable"] ?? 0)"
+        let running = busy && !["paused", "watching", "attention_required", "failed", "budget_paused"].contains(phase)
+        let label = running ? "RUNNING" : (phase == "watching" ? "WATCHING — no history running" : (phase == "pausing" ? "PAUSING" : "PAUSED — no indexing running"))
+        let scope = backfill ? "History: \(state["backfill_start_year"] as? String ?? "2025") onward" : "Recent photos only"
+        title.title="\(label) · \(month) · \(phase.replacingOccurrences(of: "_", with: " "))"
+        counts.title="Month: \(c["success"] ?? 0)/\(progress["total"] ?? 0) saved · waiting \(c["waiting"] ?? 0) · unavailable \(c["unavailable"] ?? 0) · uncertain \(c["unknown"] ?? 0) · failed \(c["failed"] ?? 0)"
         usage.title=String(format:"Total estimated $%.4f + $%.4f reserved / $35 · ",spent,reserved)+"Batch: \(progress["batch_new_requests"] ?? 0)/100 new · month $\(progress["calculated_usd"] ?? 0) · total cap $35"
         message.title=String((state["message"] as? String ?? "").prefix(100))
-        item.button?.title = busy ? "\(c["success"] ?? 0)" : "Index"
+        item.button?.title = running ? "Running" : (phase == "watching" ? "Watching" : "Paused")
         let needsReview = ["unknown", "failed", "unavailable"].reduce(0) { $0 + ((c[$1] as? NSNumber)?.intValue ?? 0) }
         let tooltip = "Photo Signal Indexer · \(phase.capitalized)\n\(month): \(c["success"] ?? 0)/\(progress["total"] ?? 0) saved · \(c["waiting"] ?? 0) waiting · \(needsReview) need review\n" + String(format: "Estimated $%.4f + $%.4f reserved / $35", spent, reserved) + "\nClick for status and controls."
         item.button?.toolTip = tooltip
         item.button?.setAccessibilityHelp(tooltip)
-        statusLine.stringValue = "\(title.title)\n\(counts.title)\n\(message.title)"
+        statusLine.stringValue = "\(title.title)\n\(scope) · \(counts.title)\n\(message.title)"
         let total = (progress["total"] as? NSNumber)?.doubleValue ?? 0
+        progressBar.isIndeterminate = running && phase != "indexing"
+        if progressBar.isIndeterminate { progressBar.startAnimation(nil) } else { progressBar.stopAnimation(nil) }
         progressBar.doubleValue = total > 0 ? ((c["success"] as? NSNumber)?.doubleValue ?? 0) / total : 0
         let completed=state["completed_months"] as? [String] ?? [],gaps=state["gaps"] as? [String] ?? []
         text.string="PHOTO SIGNAL INDEXER\n\n\(title.title)\n\(counts.title)\n\(usage.title)\n\n\(state["message"] as? String ?? "")\n\nInput tokens: \(input) · Output tokens: \(output)\nCompleted months: \(completed.count)\nMonths with gaps: \(gaps.joined(separator:", "))\n\n100 new requests per batch · concurrency 1 · $35 cumulative indexing cap\nMissing previews download from iCloud. Rendered 768px previews go to Fireworks. Names, dates and GPS stay local. Videos excluded.\n\nClose this window to continue from the menu bar. Pause persists across restarts. Quit drains active requests. Watching checks every 15 minutes while awake. Login startup can be installed separately.\n\nSaved monthly telemetry:\n" + (String(data:(try? JSONSerialization.data(withJSONObject:progress,options:[.prettyPrinted,.sortedKeys])) ?? Data(),encoding:.utf8) ?? "—")
@@ -168,7 +174,7 @@ final class HistoryIndexer: NSObject {
         for i in 0..<assets.count {let a=assets.object(at:i);if let date=a.creationDate {let m=formatter.string(from:date);if m <= currentMonth {byMonth[m,default:[]].append(a)}}}
         var done=Set(state["completed_months"] as? [String] ?? []),gaps=Set(state["gaps"] as? [String] ?? [])
         let earliest = backfill ? (state["backfill_start_year"] as? String ?? "2025") + "-01" : recentFloor
-        let months=byMonth.keys.filter{$0>=earliest}.sorted(by:>);state["total_months"]=months.count;state["eligible_photos"]=byMonth.values.reduce(0){$0+$1.count};save()
+        let months=byMonth.keys.filter{$0>=earliest}.sorted(by:>);state["earliest_month"]=earliest;state["total_months"]=months.count;state["eligible_photos"]=months.reduce(0){$0+(byMonth[$1]?.count ?? 0)};save()
         var fingerprints = state["month_fingerprints"] as? [String: String] ?? [:]
         for month in months {
             let ordered = byMonth[month]!.sorted { $0.localIdentifier < $1.localIdentifier }
@@ -188,7 +194,7 @@ final class HistoryIndexer: NSObject {
                 if stopped(){break}
                 if phase=="batch_complete" {continue}
                 if phase=="complete" || phase=="complete_with_gaps" {fingerprints[month] = fingerprint;state["month_fingerprints"] = fingerprints;done.insert(month);if phase=="complete_with_gaps"{gaps.insert(month)};state["completed_months"]=done.sorted();state["gaps"]=gaps.sorted();save();break}
-                mode = "paused"; persistSettings();set(phase,"Stopped at \(month): \(phase). Review monthly telemetry before resuming.");return
+                mode = "paused"; persistSettings();set(phase,"Paused at \(month): \(phase). Repeated errors or a budget limit need review. Choose Resume history to continue; uncertain photos are skipped.");return
             } while !stopped()
         }
         if !stopped(), backfill { backfill = false; persistSettings() }

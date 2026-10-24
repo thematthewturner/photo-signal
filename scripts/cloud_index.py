@@ -319,6 +319,7 @@ def run(month, budget, concurrency, retry_failed=False, max_new=None, global_bud
         # Repair a crash after job commit but before catalog commit, without repeating inference.
         for job in db.execute("SELECT * FROM jobs WHERE active=1 AND status='success'").fetchall(): import_result(cat, job, json.loads(job['classification_json']), ph)
         pause_reason = None
+        consecutive_ambiguous = 0
         with concurrent.futures.ThreadPoolExecutor(max_workers=concurrency) as pool:
             futures = {}
             while True:
@@ -361,7 +362,10 @@ def run(month, budget, concurrency, retry_failed=False, max_new=None, global_bud
                     if status in ('success','unknown','failed'): shared[job['input_sha256']] = (status,json.dumps(result['classification']) if result['classification'] else None,job['input_sha256'])
                     versions[(job['asset_id'],job['source_modified_at'])]=(status,json.dumps(result['classification']) if result['classification'] else None,job['input_sha256'],str(folder))
                     if status == 'success': import_result(cat, job, result['classification'], ph)
-                    if result['ambiguous']: pause_reason = 'attention_required'
+                    # Quarantine uncertain billing; never retry it automatically.
+                    # A broken connection must not strand unrelated queued photos.
+                    consecutive_ambiguous = consecutive_ambiguous + 1 if result['ambiguous'] else 0
+                    if consecutive_ambiguous >= 5: pause_reason = 'attention_required'
                     print(job['sample_id'] + ': ' + status, flush=True)
         counts = {r[0]: r[1] for r in db.execute('SELECT status,count(*) FROM jobs WHERE active=1 GROUP BY status')}
         final = pause_reason or ('complete_with_gaps' if state['people'].get('status') != 'complete' or any(counts.get(k) for k in ('failed', 'unknown', 'unavailable')) else 'complete')
